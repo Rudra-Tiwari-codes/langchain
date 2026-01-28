@@ -72,6 +72,11 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 FILTERED_ARGS = ("run_manager", "callbacks")
+
+# Reserved Python parameter names that conflict with method signatures.
+# These are renamed by appending an underscore when passed as kwargs.
+_RESERVED_PARAM_NAMES = frozenset({"self", "cls"})
+
 TOOL_MESSAGE_BLOCK_TYPES = (
     "text",
     "image_url",
@@ -858,6 +863,13 @@ class ChildTool(BaseTool):
         ):
             # StructuredTool with no args
             return (), {}
+        # Rename reserved parameter names that would conflict with
+        # Python's method signatures (e.g., self, cls) before validation.
+        if isinstance(tool_input, dict):
+            tool_input = {
+                (f"{k}_" if k in _RESERVED_PARAM_NAMES else k): v
+                for k, v in tool_input.items()
+            }
         tool_input = self._parse_input(tool_input, tool_call_id)
         # For backwards compatibility, if run_input is a string,
         # pass as a positional argument.

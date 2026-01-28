@@ -3610,3 +3610,67 @@ def test_tool_args_schema_falsy_defaults() -> None:
     # Invoke with only required argument - falsy defaults should be applied
     result = config_tool.invoke({"name": "test"})
     assert result == "name=test, enabled=False, count=0, prefix=''"
+
+
+def test_structured_tool_with_self_in_kwargs() -> None:
+    """Test that tools handle 'self' as a kwarg key by renaming to 'self_'.
+
+    Reproduces issue #34900.
+    """
+
+    class MyArgs(BaseModel):
+        """Test schema with self as a field name."""
+
+        self_: int = Field(description="A value named self")
+        other: int = Field(description="Another parameter")
+
+        model_config = ConfigDict(populate_by_name=True)
+
+    def my_func(*, self_: int, other: int) -> str:
+        """Test function with self_ parameter.
+
+        Args:
+            self_: A value that gets renamed from 'self' input.
+            other: Another parameter.
+        """
+        return f"self_={self_}, other={other}"
+
+    tool = StructuredTool.from_function(
+        my_func, name="test_tool", description="test", args_schema=MyArgs
+    )
+
+    # When invoking with 'self' in the input, it should be renamed to 'self_'
+    result = tool.invoke({"self": 2, "other": 3})
+    assert result == "self_=2, other=3"
+
+
+def test_structured_tool_with_cls_in_kwargs() -> None:
+    """Test that tools handle 'cls' as a kwarg key by renaming to 'cls_'.
+
+    Reproduces issue #34900.
+    """
+
+    class MyArgs(BaseModel):
+        """Test schema with cls as a field name."""
+
+        cls_: str = Field(description="A value named cls")
+        value: int = Field(description="Another parameter")
+
+        model_config = ConfigDict(populate_by_name=True)
+
+    def my_func(*, cls_: str, value: int) -> str:
+        """Test function with cls_ parameter.
+
+        Args:
+            cls_: A value that gets renamed from 'cls' input.
+            value: Another parameter.
+        """
+        return f"cls_={cls_}, value={value}"
+
+    tool = StructuredTool.from_function(
+        my_func, name="test_tool", description="test", args_schema=MyArgs
+    )
+
+    # When invoking with 'cls' in the input, it should be renamed to 'cls_'
+    result = tool.invoke({"cls": "MyClass", "value": 42})
+    assert result == "cls_=MyClass, value=42"
